@@ -201,7 +201,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 trainer = IntentModelTrainer(model, criterion, optimizer)
 avg_loss = trainer.train(train_loader)
 print(avg_loss)
-# need to improve avg_loss from 4.814855531110602
+# need to improve avg_loss from 4.8148555311106020
 
 # Example Usage:
 # Initialize your dataset and DataLoader, and load pre-trained embeddings (e.g., GloVe)
