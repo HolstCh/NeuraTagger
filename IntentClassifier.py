@@ -6,15 +6,17 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
+from torch.nn.utils.rnn import pad_sequence
 from torchtext.vocab import GloVe
 # nltk.download('punkt')
+from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score
 
 
 class IntentModelArchitecture(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, pretrained_embeddings=None):
         super(IntentModelArchitecture, self).__init__()
-
+        print(pretrained_embeddings)
         # embedding layer is first layer since need to covert text to numerical format, reduce dimensionality of input data, and find semantics
         if pretrained_embeddings is not None:
             self.embedding_layer = nn.Embedding.from_pretrained(pretrained_embeddings)
@@ -41,26 +43,39 @@ class IntentModelArchitecture(nn.Module):
 
 class IntentModelTrainer:
     def __init__(self, model, criterion, optimizer, device='cpu'):
-        self.model = model.to(device)  # RNN model to be trained, a RNNArchitecture object for intent classification
-        self.criterion = criterion  # loss function to measure model's performance during training
-        self.optimizer = optimizer  # optimization algorithm that updates gradients
-        self.device = device  # device that trains the model
+        # RNN model to be trained, a RNNArchitecture object for intent classification
+        self.model = model.to(device)
+        # loss function to measure model's performance during training
+        self.criterion = criterion
+        # optimization algorithm that updates gradients
+        self.optimizer = optimizer
+        # device that trains the model
+        self.device = device
 
-    def train(self, train_loader):
+    def train(self, train_data_loader):
+        print(len(train_data_loader))
+        # set model to training mode (layers behave differently compared to validate mode)
         self.model.train()
+        # keep track of total loss
         total_loss = 0
-        for inputs, labels in train_loader:
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
-
+        # iterate through training data in batches (batches of features/labels)
+        for texts, intents in train_data_loader:
+            # move features/labels to CPU device
+            texts, intents = texts.to(self.device), intents.to(self.device)
+            # zero gradients before backward pass to refrain from accumulation each backward pass
             self.optimizer.zero_grad()
-            outputs = self.model(inputs)
-            loss = self.criterion(outputs, labels)
+            # feed features into model to get labels
+            outputs = self.model(texts)
+            # compute the loss using loss function (cross entropy)
+            loss = self.criterion(outputs, intents.long())
+            # performs backpropogation to compute gradients with respect to model's parameters
             loss.backward()
+            # update step which updates paramaters using gradients computed in backward pass
             self.optimizer.step()
-
+            # adds loss value of current pass to total loss value (converted to Python number)
             total_loss += loss.item()
-
-        return total_loss / len(train_loader)
+            # returns average loss per batch
+        return total_loss / len(train_data_loader)
 
     def evaluate(self, val_loader):
         self.model.eval()
@@ -89,17 +104,33 @@ class IntentModelTrainer:
 
 
 class IntentModelDataset(Dataset):
-    def __init__(self, dataframe):
+    def __init__(self, dataframe, vocabulary):
         self.dataframe = dataframe
+        self.vocabulary = list(vocabulary)
+        self.label_encoder = LabelEncoder()
+        self.label_encoder.fit(self.dataframe['intent'])
 
     def __len__(self):
         return len(self.dataframe)
 
-    # method to return the text and labels at the given index
-    def __getitem__(self, idx):
-        text = torch.tensor(self.dataframe.iloc[idx, :-1].values)
-        label = torch.tensor(self.dataframe.iloc[idx, -1])
-        return text, label
+    def __getitem__(self, i):
+        text = self.dataframe.iloc[i]['text']
+        intent = self.dataframe.iloc[i]['intent']
+        # convert each word in the text to its corresponding index in vocab
+        text_indices = [self.vocabulary.index(word) for word in text]
+        # convert intent into numeric format
+        intent = self.label_encoder.transform([intent])[0]
+
+        return torch.tensor(text_indices), torch.tensor(intent)
+
+
+# combine samples into a batch for same dimensions for training tensor
+def padding_fn(batch):
+    # pad sequences to have the same length
+    text_indices, intents = zip(*batch)
+    padded_text_indices = pad_sequence(text_indices, batch_first=True)
+
+    return padded_text_indices, torch.tensor(intents)
 
 
 # load json file to be parsed into different dataframes
@@ -143,21 +174,21 @@ for tokens in train_df['text']:
     vocab.update(tokens)
 
 # instantiate CustomDataset objects to be loaded
-train_dataset = IntentModelDataset(train_df)
-validate_dataset = IntentModelDataset(validate_df)
-test_dataset = IntentModelDataset(test_df)
+train_dataset = IntentModelDataset(train_df, vocab)
+validate_dataset = IntentModelDataset(validate_df, vocab)
+test_dataset = IntentModelDataset(test_df, vocab)
 
-# instantiate DataLoader objects to shuffle data to reduce bias, speed training process with batch size, etc.
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-validate_loader = DataLoader(validate_dataset, batch_size=32, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True)
+# instantiate DataLoader objects to shuffle data to reduce bias, speed training process with batch size, padding, etc.
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, collate_fn=padding_fn)
+validate_loader = DataLoader(validate_dataset, batch_size=32, shuffle=True, collate_fn=padding_fn)
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True, collate_fn=padding_fn)
 
 # define hyperparameters for IntentModelArchitecture object and instantiate pre-trained word embedding
 vocab_size = len(vocab)
 embedding_dim = 100
 hidden_dim = 500
 output_dim = 151  # 150 in scope intent class and 1 oos intent class
-glove = GloVe(name='6B', dim=100)
+glove = GloVe(name='6B', dim=embedding_dim)
 
 # create instance of IntentModelArchitecture
 model = IntentModelArchitecture(vocab_size, embedding_dim, hidden_dim, output_dim, glove.vectors)
@@ -167,6 +198,10 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # instantiate IntentModelTrainer to start training the model
+trainer = IntentModelTrainer(model, criterion, optimizer)
+avg_loss = trainer.train(train_loader)
+print(avg_loss)
+# need to improve avg_loss from 4.814855531110602
 
 # Example Usage:
 # Initialize your dataset and DataLoader, and load pre-trained embeddings (e.g., GloVe)
