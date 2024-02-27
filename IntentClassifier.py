@@ -8,9 +8,6 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from torch.nn.utils.rnn import pad_sequence
 from torchtext.vocab import GloVe
-# nltk.download('punkt')
-# nltk.download('wordnet')
-# nltk.download('stopwords')
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score
 
@@ -157,6 +154,30 @@ def padding_fn(batch):
     return padded_text_indices, torch.tensor(intents)
 
 
+class DataProcessor:
+    def __init__(self, df):
+        nltk.download('punkt')
+        nltk.download('stopwords')
+        nltk.download('wordnet')
+        self.df = df
+        self.stop_words = set(nltk.corpus.stopwords.words('english'))
+        self.lemmatizer = nltk.stem.WordNetLemmatizer()
+
+    def clean_text(self):
+        self.df['text'] = self.df['text'].apply(lambda x: x.lower())  # apply lowercase to all text inputs
+        self.df['text'] = self.df['text'].apply(
+            lambda x: x.translate(str.maketrans('', '', string.punctuation)))  # remove punctuation
+
+    def tokenize_text(self):
+        self.df['text'] = self.df['text'].apply(lambda x: nltk.tokenize.word_tokenize(x)) # tokenize words in input text
+
+    def remove_stopwords(self):
+        self.df['text'] = self.df['text'].apply(lambda x: [word for word in x if word not in self.stop_words]) # remove stopwords
+
+    def lemmatize_text(self):
+        self.df['text'] = self.df['text'].apply(lambda x: [self.lemmatizer.lemmatize(word) for word in x])
+
+
 # load json file to be parsed into different dataframes
 with open('data_full.json', 'r') as fp:
     data_full = json.load(fp)
@@ -182,27 +203,41 @@ train_df = pd.concat([is_train, oos_train])
 validate_df = pd.concat([is_val, oos_val])
 test_df = pd.concat([is_test, oos_test])
 
-# preprocess training data
+# preprocess training, validation, and testing data
 vocab = set()
-train_df['text'] = train_df['text'].apply(lambda x: x.lower())  # apply lowercase to all text inputs
-train_df['text'] = train_df['text'].apply(lambda x: x.translate(str.maketrans('', '', string.punctuation)))  # remove punctuation
-train_df['text'] = train_df['text'].apply(lambda x: nltk.tokenize.word_tokenize(x))
-stop_words = set(nltk.corpus.stopwords.words('english')) # get set of stopwords
-train_df['text'] = train_df['text'].apply(lambda x: [word for word in x if word not in stop_words]) # remove stopwords
-#stemmer = nltk.stem.PorterStemmer()
-#train_df['text'] = train_df['text'].apply(lambda x: [stemmer.stem(word) for word in x])
-lematizer = nltk.stem.WordNetLemmatizer()
-train_df['text'] = train_df['text'].apply(lambda x: [lematizer.lemmatize(word) for word in x])
+processed_train = DataProcessor(train_df)
+processed_validate = DataProcessor(validate_df)
+processed_test = DataProcessor(test_df)
+
+# clean text of each dataset
+processed_train.clean_text()
+processed_validate.clean_text()
+processed_test.clean_text()
+
+# tokenize text of each dataset
+processed_train.tokenize_text()
+processed_validate.tokenize_text()
+processed_test.tokenize_text()
+
+# remove stopwords from each dataset
+processed_train.remove_stopwords()
+processed_validate.remove_stopwords()
+processed_test.remove_stopwords()
+
+# lemmatize text for each dataset
+processed_train.lemmatize_text()
+processed_validate.lemmatize_text()
+processed_test.lemmatize_text()
 
 # add each token to the set
-for tokens in train_df['text']:
+for tokens in processed_train.df['text']:
     vocab.update(tokens)
 
 print(vocab)
 # instantiate CustomDataset objects to be loaded
-train_dataset = IntentModelDataset(train_df, vocab)
-validate_dataset = IntentModelDataset(validate_df, vocab)
-test_dataset = IntentModelDataset(test_df, vocab)
+train_dataset = IntentModelDataset(processed_train.df, vocab)
+validate_dataset = IntentModelDataset(processed_validate.df, vocab)
+test_dataset = IntentModelDataset(processed_test.df, vocab)
 
 # instantiate DataLoader objects to shuffle data to reduce bias, speed training process with batch size, padding, etc.
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, collate_fn=padding_fn)
@@ -227,7 +262,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.005)
 # next run had 8/10 epoch with avg loss per batch at 0.063428 ... also tuned learning rate to 0.005 from 0.001)
 if not model_saved:
     trainer = IntentModelTrainer(model, criterion, optimizer)
-    epochs = 2
+    epochs = 7
     for epoch in range(epochs):
         avg_loss, accuracy = trainer.train(train_loader)
         print(
