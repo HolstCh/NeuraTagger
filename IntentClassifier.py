@@ -11,7 +11,7 @@ from torchtext.vocab import GloVe
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score
 
-model_saved = False
+model_is_saved = True
 
 
 class IntentModelArchitecture(nn.Module):
@@ -127,7 +127,7 @@ class IntentModelTrainer:
 class IntentModelDataset(Dataset):
     def __init__(self, dataframe, vocabulary):
         self.dataframe = dataframe
-        self.vocabulary = list(vocabulary)
+        self.vocabulary = vocabulary
         self.label_encoder = LabelEncoder()
         self.label_encoder.fit(self.dataframe['intent'])
 
@@ -229,11 +229,22 @@ processed_train.lemmatize_text()
 processed_validate.lemmatize_text()
 processed_test.lemmatize_text()
 
-# add each token to the set
-for tokens in processed_train.df['text']:
-    vocab.update(tokens)
+if not model_is_saved:
+    # add each token to the set
+    for tokens in processed_train.df['text']:
+        vocab.update(tokens)
+    vocab = sorted(list(vocab))
 
-print(vocab)
+    # save vocabulary during training
+    with open('vocab.json', 'w') as vocab_file:
+        json.dump(vocab, vocab_file)
+
+if model_is_saved:
+    # load vocabulary during inference
+    with open('vocab.json', 'r') as vocab_file:
+        loaded_vocab = json.load(vocab_file)
+        vocab = loaded_vocab
+
 # instantiate CustomDataset objects to be loaded
 train_dataset = IntentModelDataset(processed_train.df, vocab)
 validate_dataset = IntentModelDataset(processed_validate.df, vocab)
@@ -245,11 +256,11 @@ validate_loader = DataLoader(validate_dataset, batch_size=32, shuffle=True, coll
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True, collate_fn=padding_fn)
 
 # define hyperparameters for IntentModelArchitecture object and instantiate pre-trained word embedding
-vocab_size = len(vocab)
 embedding_dim = 300
 hidden_dim = 500
 output_dim = 151  # 150 in scope intent class and 1 oos intent class
 glove = GloVe(name='6B', dim=embedding_dim)
+vocab_size = glove.vectors.shape[0]
 
 # create instance of IntentModelArchitecture
 model = IntentModelArchitecture(vocab_size, embedding_dim, hidden_dim, output_dim, glove.vectors)
@@ -260,28 +271,34 @@ optimizer = optim.Adam(model.parameters(), lr=0.005)
 
 # instantiate IntentModelTrainer to start training the model (7/10 epoch seems best so far with avg loss per batch at 0.049522,
 # next run had 8/10 epoch with avg loss per batch at 0.063428 ... also tuned learning rate to 0.005 from 0.001)
-if not model_saved:
+if not model_is_saved:
     trainer = IntentModelTrainer(model, criterion, optimizer)
-    epochs = 7
+    epochs = 8
     for epoch in range(epochs):
         avg_loss, accuracy = trainer.train(train_loader)
-        print(
-            f'Epoch {epoch + 1}/{epochs}, Average Loss: {avg_loss}, Training Set Accuracy: {accuracy}')  # need to improve avg_loss from 4.8148555311106020
+        print(f'Epoch {epoch + 1}/{epochs}, Average Loss: {avg_loss}, Training Set Accuracy: {accuracy}')  # need to improve avg_loss from 4.8148555311106020
 
     val_accuracy = trainer.validate(validate_loader)
     print(f'Validation Set Accuracy: {val_accuracy}')
-    # save the trainer object to be loaded later
-    torch.save(trainer, 'intent_model_trainer.pth')
+    # save the model state in a dict to be loaded after adequate results
+    torch.save({
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+    }, 'intent_model.pth')
 
-if model_saved:
-    # Load the saved trainer object
-    trainer = torch.load('intent_model_trainer.pth')
+if model_is_saved:
+    loaded_checkpoint = torch.load('intent_model.pth')
+    # instantiate the saved model
+    loaded_model = IntentModelArchitecture(vocab_size, embedding_dim, hidden_dim, output_dim, glove.vectors)
+    # load the state dictionary into the new model
+    loaded_optimizer = optim.Adam(loaded_model.parameters(), lr=0.005)
+    loaded_model.load_state_dict(loaded_checkpoint['model_state_dict'])
+    loaded_optimizer.load_state_dict(loaded_checkpoint['optimizer_state_dict'])
+    # instantiate model trainer object with loaded model state
+    trainer = IntentModelTrainer(loaded_model, criterion, loaded_optimizer)
+    # evaluate accuracy of loaded model on validation dataset
     val_accuracy = trainer.validate(validate_loader)
     print(f'Validation Set Accuracy: {val_accuracy}')
+    test_accuracy = trainer.validate(test_loader)
+    print(f'Test Set Accuracy: {test_accuracy}')
 
-# Example Usage:
-# Initialize your dataset and DataLoader, and load pre-trained embeddings (e.g., GloVe)
-# Define hyperparameters
-# Create an instance of TextClassifier
-# Create an instance of TextClassificationModel with the TextClassifier, criterion, optimizer, and device
-# Train and evaluate the model
