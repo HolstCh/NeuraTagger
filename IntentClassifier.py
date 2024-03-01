@@ -47,7 +47,7 @@ class IntentModelArchitecture(nn.Module):
 
 
 class IntentModelTrainer:
-    def __init__(self, model, criterion, optimizer, device='cpu'):
+    def __init__(self, model, criterion, optimizer, label_encoder=None, vocab=None, device='cpu'):
         # RNN model to be trained, a RNNArchitecture object for intent classification
         self.model = model.to(device)
         # loss function to measure model's performance during training
@@ -56,6 +56,9 @@ class IntentModelTrainer:
         self.optimizer = optimizer
         # device that trains the model
         self.device = device
+        # used to decode labels
+        self.label_encoder = label_encoder
+        self.vocab = vocab
 
     def train(self, train_data_loader):
         print(len(train_data_loader))
@@ -117,19 +120,42 @@ class IntentModelTrainer:
 
     def predict(self, text):
         self.model.eval()
+
+        # clean, tokenize, remove stopwords, and lemmatize the input text
+        processed_text = text.lower()
+        processed_text = processed_text.translate(str.maketrans('', '', string.punctuation))
+        processed_text = nltk.tokenize.word_tokenize(processed_text)
+        processed_text = [word for word in processed_text if word not in set(nltk.corpus.stopwords.words('english'))]
+        processed_text = [nltk.stem.WordNetLemmatizer().lemmatize(word) for word in processed_text]
+
+        # convert processed text into numerical format using the vocabulary
+        text_indices = [self.vocab.index(word) for word in processed_text if word in self.vocab]
+        text_tensor = torch.tensor(text_indices).to(self.device).unsqueeze(0)  # add batch dimension
+
+        if not text_indices:
+            # handle the case where no words from processed_text are in the vocabulary
+            print("None of the words in processed_text are in the vocabulary.")
+            # return a default prediction
+            return "oos"
+
+        # make prediction
         with torch.no_grad():
-            inputs = text.to(self.device)
-            outputs = self.model(inputs)
+            outputs = self.model(text_tensor)
             _, preds = torch.max(outputs, 1)
-        return preds.item()
+
+        # decode numerical prediction to intent label
+        predicted_intent = self.label_encoder.inverse_transform([preds.item()])[0]
+
+        return predicted_intent
 
 
+# IntentModelDataset implements a dunder method (__getitem__) for PyTorch DataLoader to iterate through each dataframe
+# using indices similar to how an array operates; such functionality is used while training and evaluating
 class IntentModelDataset(Dataset):
-    def __init__(self, dataframe, vocabulary):
+    def __init__(self, dataframe, vocabulary, label_encoder):
         self.dataframe = dataframe
         self.vocabulary = vocabulary
-        self.label_encoder = LabelEncoder()
-        self.label_encoder.fit(self.dataframe['intent'])
+        self.label_encoder = label_encoder  # used to solely encode labels in each dataset
 
     def __len__(self):
         return len(self.dataframe)
@@ -137,10 +163,12 @@ class IntentModelDataset(Dataset):
     def __getitem__(self, i):
         text = self.dataframe.iloc[i]['text']
         intent = self.dataframe.iloc[i]['intent']
+
+        # convert intent into numeric format using label_encoder
+        intent = self.label_encoder.transform([intent])[0]
+
         # convert each word in the text to its corresponding index in vocab
         text_indices = [self.vocabulary.index(word) for word in text if word in self.vocabulary]
-        # convert intent into numeric format
-        intent = self.label_encoder.transform([intent])[0]
 
         return torch.tensor(text_indices), torch.tensor(intent)
 
@@ -162,6 +190,8 @@ class DataProcessor:
         self.df = df
         self.stop_words = set(nltk.corpus.stopwords.words('english'))
         self.lemmatizer = nltk.stem.WordNetLemmatizer()
+        self.label_encoder = LabelEncoder()  # used to encode labels
+        self.vocab = set()
 
     def clean_text(self):
         self.df['text'] = self.df['text'].apply(lambda x: x.lower())  # apply lowercase to all text inputs
@@ -169,13 +199,41 @@ class DataProcessor:
             lambda x: x.translate(str.maketrans('', '', string.punctuation)))  # remove punctuation
 
     def tokenize_text(self):
-        self.df['text'] = self.df['text'].apply(lambda x: nltk.tokenize.word_tokenize(x)) # tokenize words in input text
+        self.df['text'] = self.df['text'].apply(
+            lambda x: nltk.tokenize.word_tokenize(x))  # tokenize words in input text
 
     def remove_stopwords(self):
-        self.df['text'] = self.df['text'].apply(lambda x: [word for word in x if word not in self.stop_words]) # remove stopwords
+        self.df['text'] = self.df['text'].apply(
+            lambda x: [word for word in x if word not in self.stop_words])  # remove stopwords
 
     def lemmatize_text(self):
         self.df['text'] = self.df['text'].apply(lambda x: [self.lemmatizer.lemmatize(word) for word in x])
+
+    def encode_labels(self):
+        self.label_encoder.fit(self.df['intent'])  # fit the label encoder on intent labels
+
+    def process_data(self):
+        self.clean_text()
+        self.tokenize_text()
+        self.remove_stopwords()
+        self.lemmatize_text()
+        self.encode_labels()
+
+    def build_vocab(self):
+        for tokens in self.df['text']:
+            self.vocab.update(tokens)
+        self.vocab = sorted(list(self.vocab))
+        with open('vocab.json', 'w') as vocab_file:
+            json.dump(self.vocab, vocab_file)
+
+    def save_vocab(self, filepath):
+        with open(filepath, 'w') as vocab_file:
+            json.dump(self.vocab, vocab_file)
+
+    def load_vocab(self, filepath):
+        with open(filepath, 'r') as vocab_file:
+            loaded_vocab = json.load(vocab_file)
+        self.vocab = loaded_vocab
 
 
 # load json file to be parsed into different dataframes
@@ -204,51 +262,30 @@ validate_df = pd.concat([is_val, oos_val])
 test_df = pd.concat([is_test, oos_test])
 
 # preprocess training, validation, and testing data
-vocab = set()
 processed_train = DataProcessor(train_df)
 processed_validate = DataProcessor(validate_df)
 processed_test = DataProcessor(test_df)
 
-# clean text of each dataset
-processed_train.clean_text()
-processed_validate.clean_text()
-processed_test.clean_text()
-
-# tokenize text of each dataset
-processed_train.tokenize_text()
-processed_validate.tokenize_text()
-processed_test.tokenize_text()
-
-# remove stopwords from each dataset
-processed_train.remove_stopwords()
-processed_validate.remove_stopwords()
-processed_test.remove_stopwords()
-
-# lemmatize text for each dataset
-processed_train.lemmatize_text()
-processed_validate.lemmatize_text()
-processed_test.lemmatize_text()
+# clean, tokenize, remove stopwords, and lemmatize text of each dataset. Also, encode labels of each dataset
+processed_train.process_data()
+processed_validate.process_data()
+processed_test.process_data()
 
 if not model_is_saved:
-    # add each token to the set
-    for tokens in processed_train.df['text']:
-        vocab.update(tokens)
-    vocab = sorted(list(vocab))
-
+    # add each token to the vocabulary
+    processed_train.build_vocab()
     # save vocabulary during training
-    with open('vocab.json', 'w') as vocab_file:
-        json.dump(vocab, vocab_file)
+    processed_train.save_vocab('vocab.json')
 
 if model_is_saved:
-    # load vocabulary during inference
-    with open('vocab.json', 'r') as vocab_file:
-        loaded_vocab = json.load(vocab_file)
-        vocab = loaded_vocab
+    # load vocabulary before loading the model
+    processed_train.load_vocab("vocab.json")
 
 # instantiate CustomDataset objects to be loaded
-train_dataset = IntentModelDataset(processed_train.df, vocab)
-validate_dataset = IntentModelDataset(processed_validate.df, vocab)
-test_dataset = IntentModelDataset(processed_test.df, vocab)
+label_encoder = LabelEncoder
+train_dataset = IntentModelDataset(processed_train.df, processed_train.vocab, processed_train.label_encoder)
+validate_dataset = IntentModelDataset(processed_validate.df, processed_train.vocab, processed_validate.label_encoder)
+test_dataset = IntentModelDataset(processed_test.df, processed_train.vocab, processed_test.label_encoder)
 
 # instantiate DataLoader objects to shuffle data to reduce bias, speed training process with batch size, padding, etc.
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, collate_fn=padding_fn)
@@ -269,25 +306,46 @@ model = IntentModelArchitecture(vocab_size, embedding_dim, hidden_dim, output_di
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.005)
 
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3, verbose=True)
+
 # instantiate IntentModelTrainer to start training the model (7/10 epoch seems best so far with avg loss per batch at 0.049522,
 # next run had 8/10 epoch with avg loss per batch at 0.063428 ... also tuned learning rate to 0.005 from 0.001)
 if not model_is_saved:
-    trainer = IntentModelTrainer(model, criterion, optimizer)
-    epochs = 8
+    trainer = IntentModelTrainer(model, criterion, optimizer, label_encoder=processed_train.label_encoder,
+                                 vocab=processed_train.vocab)
+    epochs = 100  # set the maximum number of epochs
+    early_stopping_patience = 10  # number of epochs to wait for improvement
+    best_val_accuracy = 0.0
+    epochs_since_last_improvement = 0
+
     for epoch in range(epochs):
         avg_loss, accuracy = trainer.train(train_loader)
-        print(f'Epoch {epoch + 1}/{epochs}, Average Loss: {avg_loss}, Training Set Accuracy: {accuracy}')  # need to improve avg_loss from 4.8148555311106020
+        print(f'Epoch {epoch + 1}/{epochs}, Average Loss: {avg_loss}, Training Set Accuracy: {accuracy}')
 
-    val_accuracy = trainer.validate(validate_loader)
-    print(f'Validation Set Accuracy: {val_accuracy}')
-    # save the model state in a dict to be loaded after adequate results
-    torch.save({
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-    }, 'intent_model.pth')
+        val_accuracy = trainer.validate(validate_loader)
+        print(f'Validation Set Accuracy: {val_accuracy}')
+
+        # check for improvement in validation accuracy
+        if val_accuracy > best_val_accuracy:
+            best_val_accuracy = val_accuracy
+            epochs_since_last_improvement = 0
+            # save the model state when there is an improvement
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+            }, 'best_intent_model.pth')
+        else:
+            epochs_since_last_improvement += 1
+
+        # early stopping condition
+        if epochs_since_last_improvement >= early_stopping_patience:
+            print(f'No improvement in validation accuracy for {early_stopping_patience} epochs. Stopping early.')
+            break
+
+    print("Training complete.")
 
 if model_is_saved:
-    loaded_checkpoint = torch.load('intent_model.pth')
+    loaded_checkpoint = torch.load('best_intent_model.pth')
     # instantiate the saved model
     loaded_model = IntentModelArchitecture(vocab_size, embedding_dim, hidden_dim, output_dim, glove.vectors)
     # load the state dictionary into the new model
@@ -295,10 +353,11 @@ if model_is_saved:
     loaded_model.load_state_dict(loaded_checkpoint['model_state_dict'])
     loaded_optimizer.load_state_dict(loaded_checkpoint['optimizer_state_dict'])
     # instantiate model trainer object with loaded model state
-    trainer = IntentModelTrainer(loaded_model, criterion, loaded_optimizer)
+    trainer = IntentModelTrainer(loaded_model, criterion, loaded_optimizer, label_encoder=processed_train.label_encoder,
+                                 vocab=processed_train.vocab)
     # evaluate accuracy of loaded model on validation dataset
     val_accuracy = trainer.validate(validate_loader)
     print(f'Validation Set Accuracy: {val_accuracy}')
-    test_accuracy = trainer.validate(test_loader)
-    print(f'Test Set Accuracy: {test_accuracy}')
-
+    print(trainer.predict("what time is it?"))
+    # test_accuracy = trainer.validate(test_loader)
+    # print(f'Test Set Accuracy: {test_accuracy}')
