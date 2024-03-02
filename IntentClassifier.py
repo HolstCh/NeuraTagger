@@ -251,6 +251,7 @@ for key in data_full.keys():
         is_train = pd.DataFrame(data_full[key], columns=['text', 'intent'])
     elif key == "oos_test":
         oos_test = pd.DataFrame(data_full[key], columns=['text', 'intent'])
+        oos_test = oos_test.sample(n=30)
     elif key == "test":
         is_test = pd.DataFrame(data_full[key], columns=['text', 'intent'])
     elif key == "oos_train":
@@ -358,6 +359,6 @@ if model_is_saved:
     # evaluate accuracy of loaded model on validation dataset
     val_accuracy = trainer.validate(validate_loader)
     print(f'Validation Set Accuracy: {val_accuracy}')
-    print(trainer.predict("what time is it?"))
-    # test_accuracy = trainer.validate(test_loader)
-    # print(f'Test Set Accuracy: {test_accuracy}')
+    print(trainer.predict("when was Kobe in the NBA?"))
+    test_accuracy = trainer.validate(test_loader)
+    print(f'Test Set Accuracy: {test_accuracy}')
