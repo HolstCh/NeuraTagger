@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a PyTorch-powered Intent Classification model using a Long Short-Term Memory (LSTM) neural network architecture. The model is trained to predict the intent of user queries, distinguishing between different classes. The training process involves the use of pre-trained word embeddings (GloVe), and the model is evaluated on validation and test datasets.
+This project implements a PyTorch-powered Intent Classification model using a Long Short-Term Memory (LSTM) neural network architecture. The model is trained to predict the intent of user queries, distinguishing between 151 different classes. The training process involves the use of pre-trained word embeddings (GloVe), and the model is evaluated on validation and test datasets.
 
 ## Prerequisites
 
@@ -32,7 +32,26 @@ pip install torch numpy nltk pandas scikit-learn
 - **vocab.json**: Vocabulary file
 
 ## Dataset
-The dataset used for training, validation, and testing is loaded from the data_full.json file. It contains labeled examples for different intents.
+The dataset used for training, validation, and testing is loaded from the data_full.json file from the CLINC150 dataset:
+https://github.com/clinc/oos-eval. It contains labeled examples for 151 different classes and the following is a citation:
+
+@inproceedings{larson-etal-2019-evaluation,
+    title = "An Evaluation Dataset for Intent Classification and Out-of-Scope Prediction",
+    author = "Larson, Stefan  and
+      Mahendran, Anish  and
+      Peper, Joseph J.  and
+      Clarke, Christopher  and
+      Lee, Andrew  and
+      Hill, Parker  and
+      Kummerfeld, Jonathan K.  and
+      Leach, Kevin  and
+      Laurenzano, Michael A.  and
+      Tang, Lingjia  and
+      Mars, Jason",
+    booktitle = "Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP)",
+    year = "2019",
+    url = "https://www.aclweb.org/anthology/D19-1131"
+}
 
 ## Instructions
 1. Ensure _model_is_saved_ boolean within main.py is set to False to begin training the model
