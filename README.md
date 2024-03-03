@@ -22,13 +22,19 @@ pip install torch numpy nltk pandas scikit-learn
 ```
 
 ## Project Structure
-
-- **IntentModelArchitecture.py**: Contains the implementation of the neural network.
-- **DataProcessor.py**: Handles data cleaning, preprocessing, and vocabulary creation.
-- **IntentModelTrainer.py**: Trains, validates, and predicts text inputs
-- **best_intent_model.pth**: Pre-trained model checkpoint.
-- **vocab.json**: Vocabulary file.
+- **intent_classifier_model**: Module that contains the IntentModelArchitecture, IntentModelTrainer, and the IntentModelDataset classes
+- **IntentModelArchitecture.py**: Contains the implementation of the neural network structure
+- **IntentModelTrainer.py**: Trains and validates data within DataLoaders (training, validation, and testing sets) and predicts single text inputs
+- **IntentModelDataset.py**: Handles PyTorch DataLoaders to iterate through each dataframe for training/validation
+- **DataProcessor.py**: Handles data cleaning, preprocessing, and vocabulary creation
+- **main.py**: Entry point for program execution with option to train and save model, or load a pre-trained model (best_intent_model.pth)
+- **best_intent_model.pth**: Pre-trained model checkpoint
+- **vocab.json**: Vocabulary file
 
 ## Dataset
 The dataset used for training, validation, and testing is loaded from the data_full.json file. It contains labeled examples for different intents.
+
+## Instructions
+1. Ensure _model_is_saved_ boolean within main.py is set to False to begin training the model
+2. Set _model_is_saved_ to True to use the trained model and use IntentModelTrainer.predict() to predict the intent of text input or evaluate the trained model
 
