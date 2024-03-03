@@ -358,7 +358,7 @@ if model_is_saved:
                                  vocab=processed_train.vocab)
     # evaluate accuracy of loaded model on validation dataset
     val_accuracy = trainer.validate(validate_loader)
-    print(f'Validation Set Accuracy: {val_accuracy}')
-    print(trainer.predict("when was Kobe in the NBA?"))
-    test_accuracy = trainer.validate(test_loader)
-    print(f'Test Set Accuracy: {test_accuracy}')
+    #print(f'Validation Set Accuracy: {val_accuracy}')
+    print(trainer.predict("whats a random tv show"))
+    #test_accuracy = trainer.validate(test_loader)
+    #print(f'Test Set Accuracy: {test_accuracy}')
