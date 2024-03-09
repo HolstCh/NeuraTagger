@@ -114,7 +114,7 @@ if __name__ == "__main__":
                 torch.save({
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
-                }, 'best_intent_model2.pth')
+                }, 'best_intent_model.pth')
             else:
                 epochs_since_last_improvement += 1
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     # evaluate or predict text inputs using the intent classifier model that was saved after the training process above
     if model_is_saved:
         # load the checkpoint where the model had best validation accuracy
-        loaded_checkpoint = torch.load('best_intent_model2.pth')
+        loaded_checkpoint = torch.load('best_intent_model.pth')
         # instantiate the architecture class for the saved model
         loaded_model = IntentModelArchitecture(vocab_size, embedding_dim, hidden_dim, output_dim, glove.vectors)
         # load the state dictionary into the new model and load optimizer (i.e., further training or fine tuning)
