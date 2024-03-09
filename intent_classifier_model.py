@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 
 
 class IntentModelArchitecture(nn.Module):
@@ -51,6 +51,7 @@ class IntentModelTrainer:
         self.device = device
         # used to decode labels
         self.label_encoder = label_encoder
+        # vocab of indices is used for glove library (needs numerical indexing to find semantic relationships)
         self.vocab = vocab
 
     def train(self, train_data_loader):
@@ -107,9 +108,14 @@ class IntentModelTrainer:
                 # extend lists with current batches preds and labels
                 all_preds.extend(preds.cpu().numpy())
                 all_labels.extend(intents.cpu().numpy())
-        # compute accuracy of model
+
+        # compute accuracy, precision, recall, f1_score, and confusion matrix of model
         accuracy = accuracy_score(all_labels, all_preds)
-        return accuracy
+        precision = precision_score(all_labels, all_preds, average="weighted")
+        recall = recall_score(all_labels, all_preds, average="weighted")
+        f1 = f1_score(all_labels, all_preds, average="weighted")
+        cm = confusion_matrix(all_labels, all_preds)
+        return accuracy, precision, recall, f1, cm
 
     def predict(self, text):
         self.model.eval()

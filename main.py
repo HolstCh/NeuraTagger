@@ -10,6 +10,8 @@ from intent_classifier_model import IntentModelArchitecture, IntentModelTrainer,
 
 # once model is trained, set to True, allowing for model evaluations and inferences
 model_is_saved = False
+# set to True to compute evaluation metrics on saved/trained model to gain insights on performance of model
+compute_eval_metrics = False
 
 if __name__ == "__main__":
 
@@ -101,7 +103,7 @@ if __name__ == "__main__":
             avg_loss, accuracy = trainer.train(train_loader)
             print(f'Epoch {epoch + 1}/{epochs}, Average Loss: {avg_loss}, Training Set Accuracy: {accuracy}')
 
-            val_accuracy = trainer.validate(validate_loader)
+            val_accuracy, val_precision, val_recall, val_f1, val_cm = trainer.validate(validate_loader)
             print(f'Validation Set Accuracy: {val_accuracy}')
 
             # check for improvement in validation accuracy
@@ -112,7 +114,7 @@ if __name__ == "__main__":
                 torch.save({
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
-                }, 'best_intent_model.pth')
+                }, 'best_intent_model2.pth')
             else:
                 epochs_since_last_improvement += 1
 
@@ -126,7 +128,7 @@ if __name__ == "__main__":
     # evaluate or predict text inputs using the intent classifier model that was saved after the training process above
     if model_is_saved:
         # load the checkpoint where the model had best validation accuracy
-        loaded_checkpoint = torch.load('best_intent_model.pth')
+        loaded_checkpoint = torch.load('best_intent_model2.pth')
         # instantiate the architecture class for the saved model
         loaded_model = IntentModelArchitecture(vocab_size, embedding_dim, hidden_dim, output_dim, glove.vectors)
         # load the state dictionary into the new model and load optimizer (i.e., further training or fine tuning)
@@ -136,9 +138,21 @@ if __name__ == "__main__":
         # instantiate model trainer object with loaded model state
         trainer = IntentModelTrainer(loaded_model, criterion, loaded_optimizer, label_encoder=processed_train.label_encoder,
                                      vocab=processed_train.vocab)
-        # evaluate accuracy of loaded model on validation dataset
-        val_accuracy = trainer.validate(validate_loader)
-        print(f'Validation Set Accuracy: {val_accuracy}')
-        print(trainer.predict("hi, how's it going?"))
-        test_accuracy = trainer.validate(test_loader)
-        print(f'Test Set Accuracy: {test_accuracy}')
+        if compute_eval_metrics:
+            # evaluate accuracy, precision, recall, f1_score, and confusion matrix of loaded model on validation dataset
+            val_accuracy, val_precision, val_recall, val_f1, val_cm = trainer.validate(validate_loader)
+            print(f'Validation Set Metrics; Accuracy: {val_accuracy}, Precision: {val_precision}, Recall: {val_recall}, F1 Score: {val_f1}')
+            # evaluate accuracy, precision, recall, f1_score, and confusion matrix of loaded model on test dataset
+            test_accuracy, test_precision, test_recall, test_f1, test_cm = trainer.validate(test_loader)
+            print(f'Test Set Metrics; Accuracy: {test_accuracy}, Precision: {test_precision}, Recall: {test_recall}, F1 Score: {test_f1}')
+            # write the confusion matrices to text files
+            with open("validation_confusion_matrix.txt", "w") as file:
+                file.write("Validation Confusion Matrix:\n")
+                file.write("\n".join(" ".join(map(str, row.astype(int))) for row in val_cm))
+
+            with open("test_confusion_matrix.txt", "w") as file:
+                file.write("Test Confusion Matrix:\n")
+                file.write("\n".join(" ".join(map(str, row.astype(int))) for row in test_cm))
+
+        # test a single text input to observe intent prediction
+        print(trainer.predict("hi, how are you?"))
