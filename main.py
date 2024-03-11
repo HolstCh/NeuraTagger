@@ -42,9 +42,9 @@ if __name__ == "__main__":
     test_df = pd.concat([is_test, oos_test])
 
     # preprocess training, validation, and testing data
-    processed_train = DataProcessor(train_df)
-    processed_validate = DataProcessor(validate_df)
-    processed_test = DataProcessor(test_df)
+    processed_train = DataProcessor(train_df, 'text', 'intent')
+    processed_validate = DataProcessor(validate_df, 'text', 'intent')
+    processed_test = DataProcessor(test_df, 'text', 'intent')
 
     # clean, tokenize, remove stopwords, and lemmatize text of each dataset. Also, encode labels of each dataset
     processed_train.process_data()

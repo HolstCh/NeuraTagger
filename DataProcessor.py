@@ -1,3 +1,21 @@
+"""
+Filename: DataProcessor.py
+Author: Chad Holst
+Date: March 10, 2024
+
+Description:
+    The DataProcessor class is designed for preprocessing text data in Natural Language Processing (NLP) tasks. It includes
+    methods for cleaning and transforming text data, such as converting to lowercase, removing punctuation and stopwords,
+    tokenizing, and label encoding. The processed data is intended for use in supervised training machine learning models.
+
+Directions:
+    1. Create an instance of the DataProcessor class with a Pandas DataFrame, input text column name, and output label column name
+    2. Call the process_data() method to apply text preprocessing steps.
+    3. Use the processed data for training or evaluating NLP models.
+
+"""
+
+
 import json
 import nltk
 import string
@@ -5,16 +23,14 @@ from sklearn.preprocessing import LabelEncoder
 
 
 class DataProcessor:
-    """
-    DataProcessor is used to process data for Natural Language Processing (NLP) tasks. Such tasks are performed on Pandas
-    dataframes in-place. This class is currently being used to process training, testing, and validation data in Main.py
-    """
-    def __init__(self, df):
+    def __init__(self, df, text_col, label_col):
         """
         Constructs all the necessary attributes for the DataProcessor object.
 
         Args:
-            df (Pandas DataFrame): data to be be processed for NLP tasks
+            df (Pandas DataFrame): data to be be processed for NLP tasks, currently with two columns
+            text_col (str): The name of the column containing the input text data.
+            label_col (str): The name of the column containing the output label data
         """
         # download the necessary NLTK resources
         nltk.download('punkt')
@@ -23,6 +39,10 @@ class DataProcessor:
 
         # initialize corresponding train, validate, or test dataframe (df variable name is convention when using Pandas)
         self.df = df
+        # initialize input text column name for Pandas dataframe
+        self.text_col = text_col
+        # initialize output column name for Pandas dataframe
+        self.label_col = label_col
         # set of English stop words from NLTK
         self.stop_words = set(nltk.corpus.stopwords.words('english'))
         # lemmatizer for word lemmatization process
@@ -42,9 +62,9 @@ class DataProcessor:
             None. The function operates on the DataFrame in-place.
         """
         # convert all text inputs lowercase to lowercase
-        self.df['text'] = self.df['text'].apply(lambda x: x.lower())
+        self.df[self.text_col] = self.df[self.text_col].apply(lambda x: x.lower())
         # remove punctuation from each word of text inputs
-        self.df['text'] = self.df['text'].apply(
+        self.df[self.text_col] = self.df[self.text_col].apply(
             lambda x: x.translate(str.maketrans('', '', string.punctuation)))
 
     def tokenize_text(self):
@@ -56,7 +76,7 @@ class DataProcessor:
         Returns:
             None. The function operates on the DataFrame in-place.
         """
-        self.df['text'] = self.df['text'].apply(
+        self.df[self.text_col] = self.df[self.text_col].apply(
             lambda x: nltk.tokenize.word_tokenize(x))
 
     def remove_stopwords(self):
@@ -68,7 +88,7 @@ class DataProcessor:
         Returns:
             None. The function operates on the DataFrame in-place.
         """
-        self.df['text'] = self.df['text'].apply(
+        self.df[self.text_col] = self.df[self.text_col].apply(
             lambda x: [word for word in x if word not in self.stop_words])
 
     def lemmatize_text(self):
@@ -80,7 +100,7 @@ class DataProcessor:
         Returns:
             None. The function operates on the DataFrame in-place.
         """
-        self.df['text'] = self.df['text'].apply(lambda x: [self.lemmatizer.lemmatize(word) for word in x])
+        self.df[self.text_col] = self.df[self.text_col].apply(lambda x: [self.lemmatizer.lemmatize(word) for word in x])
 
     def encode_labels(self):
         """
@@ -91,7 +111,7 @@ class DataProcessor:
         Returns:
            None. The function operates on the DataFrame in-place.
         """
-        self.label_encoder.fit(self.df['intent'])
+        self.label_encoder.fit(self.df[self.label_col])
 
     def process_data(self):
         """
@@ -118,7 +138,7 @@ class DataProcessor:
            None. The function operates on the DataFrame in-place.
         """
         # update set with unique tokens
-        for tokens in self.df['text']:
+        for tokens in self.df[self.text_col]:
             self.vocab.update(tokens)
         # convert to list and sort the unique tokens
         self.vocab = sorted(list(self.vocab))
