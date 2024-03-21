@@ -6,13 +6,17 @@ Date: March 10, 2024
 Description:
     The DataProcessor class is designed for preprocessing text data in Natural Language Processing (NLP) tasks. It includes
     methods for cleaning and transforming text data, such as converting to lowercase, removing punctuation and stopwords,
-    tokenizing, and label encoding. The processed data is intended for use in supervised training machine learning models.
+    tokenizing, and label encoding. The processed data is intended for use in supervised training Machine Learning (ML) models.
+
+    The input DataFrame is expected to have two columns, each containing string values: one for input text and another for
+    output labels.
 
 Directions:
     1. Create an instance of the DataProcessor class with a Pandas DataFrame, input text column name, and output label column name
-    2. Call the process_data() method to apply text preprocessing steps.
+    (additional parameters can be added for handling more columns in the future)
+    2. Call the default process_data() method to apply text preprocessing steps.
+    (additional processing methods and order of processing methods can also be added to experiment with NLP/ML results)
     3. Use the processed data for training or evaluating NLP models.
-
 """
 
 
@@ -28,9 +32,9 @@ class DataProcessor:
         Constructs all the necessary attributes for the DataProcessor object.
 
         Args:
-            df (Pandas DataFrame): data to be be processed for NLP tasks, currently with two columns
+            df (Pandas DataFrame): df to be processed for NLP tasks containing two columns with str values.
             text_col (str): The name of the column containing the input text data.
-            label_col (str): The name of the column containing the output label data
+            label_col (str): The name of the column containing the output label data.
         """
         # download the necessary NLTK resources
         nltk.download('punkt')
@@ -39,9 +43,9 @@ class DataProcessor:
 
         # initialize corresponding train, validate, or test dataframe (df variable name is convention when using Pandas)
         self.df = df
-        # initialize input text column name for Pandas dataframe
+        # initialize input text column name for Pandas DataFrame
         self.text_col = text_col
-        # initialize output column name for Pandas dataframe
+        # initialize output column name for Pandas DataFrame
         self.label_col = label_col
         # set of English stop words from NLTK
         self.stop_words = set(nltk.corpus.stopwords.words('english'))
@@ -54,14 +58,14 @@ class DataProcessor:
 
     def clean_text(self):
         """
-        Converts all text inputs to lowercase and removes punctuation from each word of text inputs.
+        Converts each text input (str) in text column to lowercase and removes punctuation from each word of text input.
 
         No Args.
 
         Returns:
             None. The function operates on the DataFrame in-place.
         """
-        # convert all text inputs lowercase to lowercase
+        # convert all text inputs to lowercase
         self.df[self.text_col] = self.df[self.text_col].apply(lambda x: x.lower())
         # remove punctuation from each word of text inputs
         self.df[self.text_col] = self.df[self.text_col].apply(
@@ -69,7 +73,7 @@ class DataProcessor:
 
     def tokenize_text(self):
         """
-        Tokenizes words within each input text.
+        Tokenizes words within each input text (str) in text column.
 
         No Args.
 
@@ -81,7 +85,7 @@ class DataProcessor:
 
     def remove_stopwords(self):
         """
-        Removes stopwords from the text.
+        Removes stopwords from each input text (List[str]) in text column.
 
         No Args.
 
@@ -93,7 +97,7 @@ class DataProcessor:
 
     def lemmatize_text(self):
         """
-        Applies lemmatization to each word within the text.
+        Applies lemmatization to each word within each input text (List[str]) in text column.
 
         No Args.
 
@@ -104,7 +108,7 @@ class DataProcessor:
 
     def encode_labels(self):
         """
-        Fits the label encoder on intent labels (converts words to indices for later use with transform())
+        Fits the label encoder on each label in label column (str-index conversion for use with transform() or inverse_transform())
 
         No Args.
 
