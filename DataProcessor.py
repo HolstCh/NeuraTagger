@@ -11,6 +11,10 @@ Description:
     The input DataFrame is expected to have two columns, each containing string values: one for input text and another for
     output labels.
 
+    This class works as a parent class as it follows SOLID principles. Each child class may be extended for different
+    processing pipelines; creating new process_data() functions, adding additional input data cols, and adding different processing
+    functions (i.e., stemming). Such children/pipelines can be evaluated to find the best NLP pipeline for the ML model.
+
 Directions:
     1. Create an instance of the DataProcessor class with a Pandas DataFrame, input text column name, and output label column name
     (additional parameters can be added for handling more columns in the future)
@@ -18,7 +22,6 @@ Directions:
     (additional processing methods and order of processing methods can also be added to experiment with NLP/ML results)
     3. Use the processed data for training or evaluating NLP models.
 """
-
 
 import json
 import nltk
@@ -139,7 +142,7 @@ class DataProcessor:
         No Args.
 
         Returns:
-           None. The function operates on the DataFrame in-place.
+           None. The function operates on the DataFrame and vocabulary set in-place.
         """
         # update set with unique tokens
         for tokens in self.df[self.text_col]:
@@ -158,7 +161,7 @@ class DataProcessor:
             filepath (str): The path where the vocabulary will be saved.
 
         Returns:
-            None. The function operates on the DataFrame in-place.
+            None. The function operates on the vocab set in-place.
         """
         # serialize vocab and write to JSON file
         with open(filepath, 'w') as vocab_file:
@@ -172,7 +175,7 @@ class DataProcessor:
            filepath (str): The path from where the vocabulary will be loaded.
 
         Returns:
-           None. The function operates on the DataFrame in-place.
+           None. The function operates on the vocab set in-place.
         """
         # read JSON file, deserialize JSON file, and assign to vocab for use within program
         with open(filepath, 'r') as vocab_file:
