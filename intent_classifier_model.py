@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
+import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 
 
@@ -36,7 +37,9 @@ class IntentModelArchitecture(nn.Module):
         lstm_out = self.dropout(lstm_out)
         # final linear layer that acts as classifier
         output = self.linear_layer(lstm_out)
-        return output
+        # apply softmax activation function to convert raw scores to probabilities
+        output_probs = F.softmax(output, dim=1)
+        return output_probs
 
 
 class IntentModelTrainer:
