@@ -2,7 +2,30 @@
 
 ## Overview
 
-This project implements a PyTorch-powered Intent Classification model using a Long Short-Term Memory (LSTM) neural network architecture. The model is trained to predict the intent of user queries, distinguishing between 151 different classes. The training process involves the use of pre-trained word embeddings (GloVe), and the model is evaluated on validation and test datasets.
+This project implements a PyTorch-powered Intent Classification model using a Long Short-Term Memory (LSTM) neural network architecture. The model is trained to predict the intent of user queries, distinguishing between 16 different classes. 15 classes are in-scope and are related to small talk while 1 class is out-of-scope which determines if a query is unrelated to the small talk domain. The following are the possible intents: 
+
+1.     who_made_you
+2.     meaning_of_life
+3.     who_do_you_work_for
+4.     do_you_have_pets
+5.     what_are_your_hobbies
+6.     fun_fact
+7.     what_is_your_name
+8.     where_are_you_from
+9.     goodbye
+10.     thank_you
+11.     greeting
+12.     tell_joke
+13.     are_you_a_bot
+14.     how_old_are_you
+15.     what_can_i_ask_you
+16.     oos (out-of-scope)
+
+The training process involves the use of pre-trained word embeddings (GloVe) and data augmentation. Afterwards, the model is evaluated on validation and test datasets. The following are metrics of the test set for the current model:
+- Precision: 82.4 %
+- Accuracy: 80.6 %
+- Recall: 80.6 %
+- F1 Score: 80.0 %
 
 ## Prerequisites
 
@@ -26,14 +49,15 @@ pip install torch numpy nltk pandas scikit-learn
 - **IntentModelArchitecture.py**: Contains the implementation of the neural network structure
 - **IntentModelTrainer.py**: Trains and validates data within DataLoaders (training, validation, and testing sets) and predicts single text inputs
 - **IntentModelDataset.py**: Handles PyTorch DataLoaders to iterate through each dataframe for training/validation
-- **DataProcessor.py**: Handles data cleaning, preprocessing, and vocabulary creation
+- **DataProcessor.py**: Handles data cleaning, preprocessing, vocabulary creation, and data augmentation function
 - **main.py**: Entry point for program execution with option to train and save model, or load a pre-trained model (best_intent_model.pth)
 - **best_intent_model.pth**: Pre-trained model checkpoint
 - **vocab.json**: Vocabulary file
 
 ## Dataset
 The dataset used for training, validation, and testing is loaded from the data_full.json file from the CLINC150 dataset:
-https://github.com/clinc/oos-eval. It contains labeled examples for 151 different classes and the following is a citation:
+https://github.com/clinc/oos-eval. It contains labeled examples for 151 different classes. This project uses some of the
+data from the and the following is a citation:
 
 @inproceedings{larson-etal-2019-evaluation,
     title = "An Evaluation Dataset for Intent Classification and Out-of-Scope Prediction",
