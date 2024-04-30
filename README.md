@@ -50,14 +50,14 @@ pip install torch numpy nltk pandas scikit-learn
 - **IntentModelTrainer.py**: Trains and validates data within DataLoaders (training, validation, and testing sets) and predicts single text inputs
 - **IntentModelDataset.py**: Handles PyTorch DataLoaders to iterate through each dataframe for training/validation
 - **DataProcessor.py**: Handles data cleaning, preprocessing, vocabulary creation, and data augmentation function
-- **main.py**: Entry point for program execution with option to train and save model, or load a pre-trained model (best_intent_model.pth)
+- **main.py**: Entry point for program execution with option to train and save model, or load a pre-trained model (small_talk_intent_model.pth)
 - **best_intent_model.pth**: Pre-trained model checkpoint
 - **vocab.json**: Vocabulary file
 
 ## Dataset
 The dataset used for training, validation, and testing is loaded from the data_full.json file from the CLINC150 dataset:
-https://github.com/clinc/oos-eval. It contains labeled examples for 151 different classes. This project uses some of the
-data from the and the following is a citation:
+https://github.com/clinc/oos-eval. It contains labeled examples for 151 different classes. This project uses data from 
+16 of the classes (15 small talk intents and the oos intent) and the following is a citation:
 
 @inproceedings{larson-etal-2019-evaluation,
     title = "An Evaluation Dataset for Intent Classification and Out-of-Scope Prediction",
