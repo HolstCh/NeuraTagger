@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchtext.vocab import GloVe
-from DataProcessor import DataProcessor
+from DataProcessor import DataProcessor, augment_data
 from intent_classifier_model import IntentModelArchitecture, IntentModelTrainer, IntentModelDataset, padding_fn
 
 # once model is trained, set to True, allowing for model evaluations and inferences
@@ -19,20 +19,41 @@ if __name__ == "__main__":
     with open('data_full.json', 'r') as fp:
         data_full = json.load(fp)
 
-    # combine all training, validation, and test datasets (using both oos and is prompts)
+    # combine all training, validation, and test datasets (using both out-of-scope and in-scope prompts)
+    selected_intents = [
+        "who_made_you",
+        "meaning_of_life",
+        "who_do_you_work_for",
+        "do_you_have_pets",
+        "what_are_your_hobbies",
+        "fun_fact",
+        "what_is_your_name",
+        "where_are_you_from",
+        "goodbye",
+        "thank_you",
+        "greeting",
+        "tell_joke",
+        "are_you_a_bot",
+        "how_old_are_you",
+        "what_can_i_ask_you"
+    ]
+
     for key in data_full.keys():
         if key == "oos_val":
             oos_val = pd.DataFrame(data_full[key], columns=['text', 'intent'])
             oos_val = oos_val.sample(n=20)
         elif key == "val":
             is_val = pd.DataFrame(data_full[key], columns=['text', 'intent'])
+            is_val = is_val[is_val['intent'].isin(selected_intents)]
         elif key == "train":
             is_train = pd.DataFrame(data_full[key], columns=['text', 'intent'])
+            is_train = is_train[is_train['intent'].isin(selected_intents)]
         elif key == "oos_test":
             oos_test = pd.DataFrame(data_full[key], columns=['text', 'intent'])
             oos_test = oos_test.sample(n=30)
         elif key == "test":
             is_test = pd.DataFrame(data_full[key], columns=['text', 'intent'])
+            is_test = is_test[is_test['intent'].isin(selected_intents)]
         elif key == "oos_train":
             oos_train = pd.DataFrame(data_full[key], columns=['text', 'intent'])
 
@@ -40,6 +61,12 @@ if __name__ == "__main__":
     train_df = pd.concat([is_train, oos_train])
     validate_df = pd.concat([is_val, oos_val])
     test_df = pd.concat([is_test, oos_test])
+
+    # augment the training data
+    augmented_train_df = augment_data(train_df, num_samples=100)
+
+    # Concatenate augmented training data with original training data
+    train_df = pd.concat([train_df, augmented_train_df])
 
     # preprocess training, validation, and testing data
     processed_train = DataProcessor(train_df, 'text', 'intent')
@@ -65,7 +92,8 @@ if __name__ == "__main__":
 
     # instantiate CustomDataset objects to be loaded
     train_dataset = IntentModelDataset(processed_train.df, processed_train.vocab, processed_train.label_encoder)
-    validate_dataset = IntentModelDataset(processed_validate.df, processed_train.vocab, processed_validate.label_encoder)
+    validate_dataset = IntentModelDataset(processed_validate.df, processed_train.vocab,
+                                          processed_validate.label_encoder)
     test_dataset = IntentModelDataset(processed_test.df, processed_train.vocab, processed_test.label_encoder)
 
     # instantiate DataLoader objects to shuffle data to reduce bias, speed training process with batch size, padding, etc.
@@ -75,8 +103,8 @@ if __name__ == "__main__":
 
     # define hyperparameters for IntentModelArchitecture object and instantiate pre-trained word embedding
     embedding_dim = 300
-    hidden_dim = 500
-    output_dim = 151  # 150 in scope intent class and 1 oos intent class
+    hidden_dim = 128
+    output_dim = 16  # 15 in scope intent class and 1 out of scope intent class
     glove = GloVe(name='6B', dim=embedding_dim)
     vocab_size = glove.vectors.shape[0]
 
@@ -114,7 +142,7 @@ if __name__ == "__main__":
                 torch.save({
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
-                }, 'best_intent_model.pth')
+                }, 'small_talk_intent_model.pth')
             else:
                 epochs_since_last_improvement += 1
 
@@ -128,7 +156,7 @@ if __name__ == "__main__":
     # evaluate or predict text inputs using the intent classifier model that was saved after the training process above
     if model_is_saved:
         # load the checkpoint where the model had best validation accuracy
-        loaded_checkpoint = torch.load('best_intent_model.pth')
+        loaded_checkpoint = torch.load('small_talk_intent_model.pth')
         # instantiate the architecture class for the saved model
         loaded_model = IntentModelArchitecture(vocab_size, embedding_dim, hidden_dim, output_dim, glove.vectors)
         # load the state dictionary into the new model and load optimizer (i.e., further training or fine tuning)
@@ -136,15 +164,18 @@ if __name__ == "__main__":
         loaded_optimizer = optim.Adam(loaded_model.parameters(), lr=0.005)
         loaded_optimizer.load_state_dict(loaded_checkpoint['optimizer_state_dict'])
         # instantiate model trainer object with loaded model state
-        trainer = IntentModelTrainer(loaded_model, criterion, loaded_optimizer, label_encoder=processed_train.label_encoder,
+        trainer = IntentModelTrainer(loaded_model, criterion, loaded_optimizer,
+                                     label_encoder=processed_train.label_encoder,
                                      vocab=processed_train.vocab)
         if compute_eval_metrics:
             # evaluate accuracy, precision, recall, f1_score, and confusion matrix of loaded model on validation dataset
             val_accuracy, val_precision, val_recall, val_f1, val_cm = trainer.validate(validate_loader)
-            print(f'Validation Set Metrics; Accuracy: {val_accuracy}, Precision: {val_precision}, Recall: {val_recall}, F1 Score: {val_f1}')
+            print(
+                f'Validation Set Metrics; Accuracy: {val_accuracy}, Precision: {val_precision}, Recall: {val_recall}, F1 Score: {val_f1}')
             # evaluate accuracy, precision, recall, f1_score, and confusion matrix of loaded model on test dataset
             test_accuracy, test_precision, test_recall, test_f1, test_cm = trainer.validate(test_loader)
-            print(f'Test Set Metrics; Accuracy: {test_accuracy}, Precision: {test_precision}, Recall: {test_recall}, F1 Score: {test_f1}')
+            print(
+                f'Test Set Metrics; Accuracy: {test_accuracy}, Precision: {test_precision}, Recall: {test_recall}, F1 Score: {test_f1}')
             # write the confusion matrices to text files
             with open("validation_confusion_matrix.txt", "w") as file:
                 file.write("Validation Confusion Matrix:\n")
@@ -155,4 +186,4 @@ if __name__ == "__main__":
                 file.write("\n".join(" ".join(map(str, row.astype(int))) for row in test_cm))
 
         # test a single text input to observe intent prediction
-        print(trainer.predict("hi, how are you?"))
+        print(trainer.predict("write me something hilarious"))

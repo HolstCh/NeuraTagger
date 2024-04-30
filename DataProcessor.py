@@ -25,6 +25,9 @@ Directions:
 
 import json
 import nltk
+from nltk.corpus import wordnet
+import pandas as pd
+import random
 import string
 from sklearn.preprocessing import LabelEncoder
 
@@ -180,3 +183,44 @@ class DataProcessor:
         # read JSON file, deserialize JSON file, and assign to vocab for use within program
         with open(filepath, 'r') as vocab_file:
             self.vocab = json.load(vocab_file)
+
+
+# function to perform data augmentation
+def augment_data(df, num_samples=1):
+    augmented_data = []
+    for index, row in df.iterrows():
+        text = row['text']
+        label = row['intent']
+        tokens = nltk.word_tokenize(text)
+        for _ in range(num_samples):
+            # make a copy of the original tokens for each sample
+            augmented_tokens = tokens[:]
+
+            # Synonym replacement
+            for i, token in enumerate(tokens):
+                if random.random() < 0.9:  # 90% chance of replacement
+                    synonyms = wordnet.synsets(token)
+                    if len(synonyms) > 0:
+                        synonym = random.choice(synonyms).lemma_names()[0]
+                        augmented_tokens[i] = synonym
+
+            # random insertion
+            for _ in range(int(0.5 * len(tokens))):  # 50% of the tokens
+                if len(df) > 0:  # Check if DataFrame is not empty
+                    random_index = random.randint(0, len(augmented_tokens) - 1)
+                    random_row = df.iloc[random.randint(0, len(df) - 1)]
+                    if not random_row.empty:
+                        random_text = random_row['text']
+                        random_text_tokens = nltk.word_tokenize(random_text)
+                        if len(random_text_tokens) > 1:
+                            random_token = random.choice(random_text_tokens)
+                            augmented_tokens.insert(random_index, random_token)
+
+            # random deletion
+            if len(augmented_tokens) > 1:
+                augmented_tokens = [token for token in augmented_tokens if
+                                    random.random() > 0.5]  # 50% chance of deletion
+
+            augmented_text = ' '.join(augmented_tokens)
+            augmented_data.append([augmented_text, label])
+    return pd.DataFrame(augmented_data, columns=['text', 'intent'])
