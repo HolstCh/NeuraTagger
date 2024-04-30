@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a PyTorch-powered Intent Classification model using a Long Short-Term Memory (LSTM) neural network architecture. The model is trained to predict the intent of user queries, distinguishing between 16 different classes. 15 classes are in-scope and are related to small talk while 1 class is out-of-scope which determines if a query is unrelated to the small talk domain. The following are the possible intents: 
+This project implements a PyTorch-powered Intent Classification model using a Long Short-Term Memory (LSTM) neural network architecture. The model is trained to predict the intent of user text inputs, distinguishing between 16 different classes. 15 classes are in-scope and are related to small talk while 1 class is out-of-scope which determines if a text input is unrelated to the small talk domain. The following are the possible intents: 
 
 1.     who_made_you
 2.     meaning_of_life
@@ -21,7 +21,7 @@ This project implements a PyTorch-powered Intent Classification model using a Lo
 15.     what_can_i_ask_you
 16.     oos (out-of-scope)
 
-The training process involves the use of pre-trained word embeddings (GloVe) and data augmentation. Afterwards, the model is evaluated on validation and test datasets. The following are metrics of the test set for the current model:
+The training process involves the use of pre-trained word embeddings (GloVe) and data augmentation. Afterwards, the model is evaluated on validation and test datasets. The following are test set evaluation metrics for the current model:
 - Precision: 82.4 %
 - Accuracy: 80.6 %
 - Recall: 80.6 %
@@ -79,5 +79,6 @@ data from the and the following is a citation:
 
 ## Instructions
 1. Ensure _model_is_saved_ boolean within main.py is set to False to begin training the model
-2. Set _model_is_saved_ to True to use the trained model and use IntentModelTrainer.predict() to predict the intent of text input or evaluate the trained model
+2. Set compute_eval_metrics to True to evaluate the trained model
+3. Set _model_is_saved_ to True to use the trained model and use IntentModelTrainer.predict() to predict the intent of a user text input
 
