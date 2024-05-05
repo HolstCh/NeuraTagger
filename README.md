@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a PyTorch-powered Intent Classification model using a Long Short-Term Memory (LSTM) neural network architecture. The model is trained to predict the intent of user text inputs, distinguishing between 16 different classes. 15 classes are in-scope and are related to small talk while 1 class is out-of-scope which determines if a text input is unrelated to the small talk domain. The following are the possible intents: 
+This project implements a PyTorch-powered Intent Classification model using a Long Short-Term Memory (LSTM) neural network architecture and Natural Language Processing (NLP). Intent classifiers can enhance Large Language Models (LLMs) by helping models: understand user input, generate contextually relevant responses, maintain conversational flow, handle multiturn dialogues, and filter inputs. This model is trained to predict the intent of user text inputs, distinguishing between 16 different classes. 15 classes are in-scope and are related to small talk while 1 class is out-of-scope which determines if a text input is unrelated to the small talk domain. The following are the possible intents: 
 
 1.     who_made_you
 2.     meaning_of_life
